@@ -13,10 +13,10 @@ ENV QT_QPA_PLATFORM=offscreen
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY epub-web/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY epub-web/ .
 
 # 建立暫存目錄
 RUN mkdir -p /tmp/epub_jobs
