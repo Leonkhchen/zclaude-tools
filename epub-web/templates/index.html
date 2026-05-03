@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPUB / PDF 轉換器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* 拖放高亮 */
+    #drop-zone.drag-over {
+      border-color: #2563EB;
+      background-color: #EFF6FF;
+    }
+    /* 進度條動畫 */
+    .bar-fill { transition: width 0.3s ease; }
+    /* log 捲軸 */
+    #log-box::-webkit-scrollbar { width: 4px; }
+    #log-box::-webkit-scrollbar-thumb { background:#374151; border-radius:2px; }
+    /* 手機不顯示拖放提示 */
+    @media (pointer:coarse) { #drop-hint { display:none; } }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+<!-- ══ 頂部 header ═══════════════════════════════════════════════════════════ -->
+<header class="bg-slate-800 text-white px-6 py-4 flex items-center gap-4 shadow-md">
+  <div>
+    <h1 class="text-xl font-bold tracking-wide">EPUB / PDF 轉換器</h1>
+    <p class="text-slate-400 text-xs mt-0.5">
+      EPUB→PDF・EPUB→Markdown・PDF→EPUB　支援批次・繁體中文排版
+      {% if calibre_ok %}
+        <span class="ml-2 text-green-400">● Calibre 已就緒</span>
+      {% else %}
+        <span class="ml-2 text-yellow-400">● reportlab 備援模式（未偵測到 Calibre）</span>
+      {% endif %}
+    </p>
+  </div>
+</header>
+
+<!-- ══ 主體 ══════════════════════════════════════════════════════════════════ -->
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- 上傳區 -->
+  <section class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-slate-700 font-semibold text-base mb-4">① 選擇檔案</h2>
+
+    <!-- 拖放區 -->
+    <div id="drop-zone"
+         class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
+         onclick="document.getElementById('file-input').click()">
+      <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.632-8.683 3 3 0 0 1 3.865-3.548 3 3 0 0 1 5.034 0 3 3 0 0 1 3.865 3.548A4.5 4.5 0 0 1 17.25 19.5h-10.5Z"/>
+      </svg>
+      <p class="text-slate-500 text-sm" id="drop-hint">拖放 .epub 或 .pdf 到這裡，或點擊選擇</p>
+      <p class="text-slate-400 text-xs mt-1">可選多個檔案・最大 200 MB</p>
+    </div>
+    <input id="file-input" type="file" accept=".epub,.pdf" multiple class="hidden" />
+
+    <!-- 輸出格式 -->
+    <div class="mt-4 flex flex-wrap gap-4 items-center">
+      <span class="text-slate-600 text-sm font-medium">輸出格式：</span>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="pdf" checked class="accent-blue-600" /> PDF 文件
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="md" class="accent-blue-600" /> Markdown (.md)
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="both" class="accent-blue-600" /> PDF + Markdown
+      </label>
+    </div>
+  </section>
+
+  <!-- 檔案清單 -->
+  <section id="file-list-section" class="bg-white rounded-2xl shadow p-6 hidden">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-slate-700 font-semibold text-base">② 檔案清單</h2>
+      <button id="clear-btn"
+              class="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors">
+        清空清單
+      </button>
+    </div>
+
+    <div id="file-list" class="space-y-2 mb-4"></div>
+
+    <!-- 進度總覽 -->
+    <div id="total-progress" class="hidden mt-3">
+      <div class="flex justify-between text-xs text-slate-500 mb-1">
+        <span id="progress-label">準備中…</span>
+        <span id="progress-pct"></span>
+      </div>
+      <div class="bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div id="progress-bar" class="bar-fill h-full bg-blue-500 rounded-full" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- 開始轉換 -->
+    <button id="convert-btn"
+            class="mt-4 w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+      ▶ 開始轉換
+    </button>
+  </section>
+
+  <!-- 訊息記錄 -->
+  <section id="log-section" class="bg-slate-900 rounded-2xl shadow p-4 hidden">
+    <div class="flex justify-between items-center mb-2">
+      <h2 class="text-slate-300 font-semibold text-sm">訊息記錄</h2>
+      <button id="clear-log-btn" class="text-xs text-slate-500 hover:text-slate-300">清除</button>
+    </div>
+    <div id="log-box"
+         class="font-mono text-xs text-slate-300 h-48 overflow-y-auto leading-5 whitespace-pre-wrap break-all"></div>
+  </section>
+
+</main>
+
+<!-- ══ 結果彈窗 ══════════════════════════════════════════════════════════════ -->
+<div id="result-modal"
+     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden px-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+    <h3 id="modal-title" class="text-xl font-bold mb-4 text-slate-800"></h3>
+    <div id="modal-body" class="text-slate-600 text-sm mb-6 space-y-2"></div>
+    <button onclick="document.getElementById('result-modal').classList.add('hidden')"
+            class="w-full py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium transition-colors">
+      關閉
+    </button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

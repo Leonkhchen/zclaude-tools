@@ -14,6 +14,8 @@ package-lock.json
 
 # 與 EPUB 轉檔無關的腳本（YouTube、Threads、LINE、企業短片）
 *.js
+# 但 Web 版前端 JS 要保留
+!epub-web/static/*.js
 *.sh
 taiwan-finance-shorts.py
 create_answer001.py
