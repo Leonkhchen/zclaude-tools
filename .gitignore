@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# Node.js
+node_modules/
+npm-debug.log*
+package.json
+package-lock.json
+
+# 與 EPUB 轉檔無關的腳本（YouTube、Threads、LINE、企業短片）
+*.js
+*.sh
+taiwan-finance-shorts.py
+create_answer001.py
+merge_pdfs_to_docx.py
+
+# 輸出檔（不提交）
+*.pdf
+*.docx
+*.png
+*.azw3
+*.htmlz
+*.epub
+*.mp3
+*.mp4
+
+# Threads / YouTube session 資料（含敏感 token，不提交）
+state/
+*.json
+!package.json
+!package-lock.json
+
+# 專案內部指令（不對外公開）
+CLAUDE.md
+
+# 環境變數與 API 金鑰（絕對不提交）
+.env
+.env.*
+*.env
+
+# 臨時檔
+~
+nul
+inst/
+*.log
+
+# 個人作業文件
+閱讀英文學文化*.docx
+閱讀英文學文化*.pdf
+answer001.docx
+Homework001.pdf
+merged_output.docx
+試錯策略*.pdf
+
+# Preview images
+preview_*.png
+hw001_preview.png
