@@ -23,4 +23,4 @@ RUN mkdir -p /tmp/epub_jobs
 
 EXPOSE 8080
 
-CMD ["gunicorn", "-w", "2", "--timeout", "300", "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-w", "1", "--threads", "4", "--timeout", "300", "-b", "0.0.0.0:8080", "app:app"]

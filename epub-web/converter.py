@@ -401,17 +401,33 @@ def _convert_with_reportlab(epub_path: Path, pdf_path: Path, log) -> None:
     log(f"  完成！{pdf_path.name}  ({kb:,} KB)")
 
 
+def _calibre_cjk_font() -> str:
+    """回傳 Calibre 可用的 CJK 字型名稱（依平台）。"""
+    if platform.system() == "Windows":
+        return "Microsoft JhengHei"
+    # Linux: 查 Noto CJK 是否安裝
+    for path in (
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+    ):
+        if Path(path).exists():
+            return "Noto Sans CJK TC"
+    return ""   # 讓 Calibre 自行選擇
+
+
 def _convert_with_calibre(epub_path: Path, pdf_path: Path, log) -> None:
     log("  引擎：Calibre（備援：純 Python reportlab）")
+    cjk = _calibre_cjk_font()
     pdf_opts = [
         "--paper-size", "a4",
         "--margin-top", "20", "--margin-bottom", "20",
         "--margin-left", "25", "--margin-right", "25",
-        "--pdf-serif-family", "Microsoft JhengHei",
-        "--pdf-sans-family",  "Microsoft JhengHei",
         "--pdf-default-font-size", "12",
         "--base-font-size", "12",
     ]
+    if cjk:
+        pdf_opts += ["--pdf-serif-family", cjk, "--pdf-sans-family", cjk]
     log("  嘗試 1：Calibre EPUB → PDF …")
     rc = _calibre_run(epub_path, pdf_path, pdf_opts, log)
     if rc == 0 and pdf_path.exists():
