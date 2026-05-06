@@ -50,11 +50,12 @@ def _cjk_candidates():
         ]
     else:
         return [
-            ("/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", 0, "NotoSansCJK"),
-            ("/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",    0, "NotoSansCJKBold"),
-            ("/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc", 0, "NotoSansCJK"),
-            ("/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",     0, "NotoSansCJK"),
-            # fallback: DejaVu (will not render CJK but won't crash)
+            # WQY Micro Hei — TrueType 格式，reportlab 可用，含完整 CJK
+            ("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",        0, "WQYMicroHei"),
+            # WQY Zen Hei（備用）
+            ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",          0, "WQYZenHei"),
+            # Noto CJK（opentype/CFF，reportlab 不支援，跳過）
+            # DejaVu fallback（無 CJK 但不 crash）
             ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        0, "DejaVuSans"),
         ]
 

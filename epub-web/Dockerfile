@@ -4,12 +4,15 @@ FROM python:3.13-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         calibre \
         fonts-noto-cjk \
+        fonts-wqy-microhei \
         xvfb \
     && rm -rf /var/lib/apt/lists/*
 
-# 讓 Calibre 在無頭伺服器上正常運行
+# 讓 Calibre 在無頭 Docker 容器中正常運行
 ENV DISPLAY=:99
 ENV QT_QPA_PLATFORM=offscreen
+# Docker 以 root 執行，QtWebEngine(Chromium) 需要 --no-sandbox
+ENV QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox
 
 WORKDIR /app
 
