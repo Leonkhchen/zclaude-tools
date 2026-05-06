@@ -223,6 +223,7 @@ def _worker(job_id: str):
 
     def log(msg: str):
         _push(q, "log", {"text": msg})
+        _dbg(msg)   # mirror to stderr → Zeabur runtime log
 
     for i, f in enumerate(files):
         src_path = Path(f["path"])
