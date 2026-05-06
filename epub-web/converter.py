@@ -67,13 +67,27 @@ def _cjk_candidates():
 def _calibre_run(src: Path, dst: Path, extra_args: list, log) -> int:
     """執行 ebook-convert，把 stdout/stderr 轉給 log callback。"""
     cmd = [CALIBRE_PATH, str(src), str(dst)] + extra_args
-    log(f"    cmd: {' '.join(repr(c) for c in cmd[:3])}")
+
     kwargs = dict(
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, encoding="utf-8", errors="replace",
     )
+
     if platform.system() == "Windows":
         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+    else:
+        # Linux / Docker: 確保 Chromium sandbox 旗標正確設定
+        env = dict(os.environ)
+        env["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu"
+        env["QT_QPA_PLATFORM"] = "offscreen"
+        kwargs["env"] = env
+
+        # 如果 xvfb-run 存在，用它包裝（提供虛擬 X display 給 QtWebEngine）
+        xvfb = shutil.which("xvfb-run")
+        if xvfb:
+            cmd = [xvfb, "--auto-servernum", "--server-args=-screen 0 1024x768x24"] + cmd
+
+    log(f"    cmd: {' '.join(repr(c) for c in cmd[:4] if not c.startswith('-'))}")
     proc = subprocess.run(cmd, **kwargs)
     for line in proc.stdout.splitlines():
         line = line.strip()

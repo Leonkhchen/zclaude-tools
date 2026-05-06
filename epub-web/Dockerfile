@@ -1,6 +1,7 @@
 FROM python:3.13-slim
 
 # 安裝系統套件：Calibre + Noto CJK 字型 + 必要工具
+# xvfb 提供虛擬 X display 讓 Calibre QtWebEngine 正常運作
 RUN apt-get update && apt-get install -y --no-install-recommends \
         calibre \
         fonts-noto-cjk \
@@ -9,10 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 讓 Calibre 在無頭 Docker 容器中正常運行
+# converter.py 會在執行 ebook-convert 時透過 xvfb-run 包裝
+# 並在 subprocess env 中明確設定 QTWEBENGINE_CHROMIUM_FLAGS
 ENV DISPLAY=:99
 ENV QT_QPA_PLATFORM=offscreen
-# Docker 以 root 執行，QtWebEngine(Chromium) 需要 --no-sandbox
-ENV QTWEBENGINE_CHROMIUM_FLAGS=--no-sandbox
+ENV QTWEBENGINE_CHROMIUM_FLAGS="--no-sandbox --disable-gpu"
 
 WORKDIR /app
 
