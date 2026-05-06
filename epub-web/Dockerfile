@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         calibre \
         fonts-noto-cjk \
         fonts-wqy-microhei \
+        fonts-wqy-zenhei \
         xvfb \
     && rm -rf /var/lib/apt/lists/*
 
