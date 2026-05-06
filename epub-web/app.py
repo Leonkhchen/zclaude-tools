@@ -11,9 +11,12 @@ app.py  —  EPUB / PDF 轉換器 Web 版（Flask + SSE）
 """
 
 from __future__ import annotations
-import os, uuid, json, time, queue, threading, traceback
+import os, uuid, json, time, queue, threading, traceback, sys
 from pathlib import Path
 from flask import Flask, request, jsonify, send_file, Response, render_template
+
+def _dbg(msg: str):
+    print(f"[PID={os.getpid()}] {msg}", file=sys.stderr, flush=True)
 
 from converter import (
     convert_to_pdf, convert_to_md, convert_pdf_to_epub, CALIBRE_PATH
@@ -119,6 +122,7 @@ def upload():
             "done":  False,
             "queue": queue.Queue(),
         }
+        _dbg(f"UPLOAD job={job_id} total_jobs={list(_jobs.keys())}")
 
     return jsonify(job_id=job_id,
                    files=[{"id": f["id"], "name": f["name"],
@@ -129,6 +133,7 @@ def upload():
 def start_convert(job_id: str):
     with _jobs_lock:
         job = _jobs.get(job_id)
+        _dbg(f"CONVERT job={job_id} found={job is not None} all_jobs={list(_jobs.keys())}")
     if not job:
         return jsonify(error="job 不存在"), 404
 
