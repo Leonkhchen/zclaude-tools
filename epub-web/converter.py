@@ -18,7 +18,7 @@ EPUB → Markdown：
 """
 
 from __future__ import annotations
-import os, re, platform, subprocess, shutil
+import os, re, platform, subprocess, shutil, threading
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -40,6 +40,11 @@ CALIBRE_PATH = _find_calibre()
 
 # ── CJK 字型候選（依平台）────────────────────────────────────────────────────
 
+# 執行時下載 WQY 字型的暫存路徑（容器重啟後清除，首次轉換時自動下載）
+_WQY_RUNTIME_PATH = Path("/tmp/epub_jobs/wqy-microhei.ttc")
+_wqy_lock = threading.Lock()
+
+
 def _cjk_candidates():
     if platform.system() == "Windows":
         return [
@@ -50,14 +55,45 @@ def _cjk_candidates():
         ]
     else:
         return [
-            # WQY Micro Hei — TrueType 格式，reportlab 可用，含完整 CJK
-            ("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",        0, "WQYMicroHei"),
-            # WQY Zen Hei（備用）
-            ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",          0, "WQYZenHei"),
-            # Noto CJK（opentype/CFF，reportlab 不支援，跳過）
+            # 執行時下載的 WQY（首選）
+            (str(_WQY_RUNTIME_PATH),                                    0, "WQYMicroHei"),
+            # apt 安裝的 WQY（若 Docker layer 有包含）
+            ("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",         0, "WQYMicroHei"),
+            ("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",           0, "WQYZenHei"),
             # DejaVu fallback（無 CJK 但不 crash）
             ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        0, "DejaVuSans"),
         ]
+
+
+def _ensure_wqy_font(log) -> None:
+    """在 Linux 容器中首次使用時下載 WQY Micro Hei（~5 MB，只下載一次）。"""
+    with _wqy_lock:
+        if _WQY_RUNTIME_PATH.exists() and _WQY_RUNTIME_PATH.stat().st_size > 1_000_000:
+            return  # 已快取
+        # 先嘗試 apt（若 package lists 存在）
+        for apt_path in (
+            Path("/usr/share/fonts/truetype/wqy/wqy-microhei.ttc"),
+            Path("/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"),
+        ):
+            if apt_path.exists():
+                return  # 已由 apt 安裝，不需下載
+        # 從 GitHub 下載官方 WQY Micro Hei TrueType 字型
+        import urllib.request
+        url = ("https://raw.githubusercontent.com/"
+               "anthonyfok/fonts-wqy-microhei/master/wqy-microhei.ttc")
+        try:
+            log("  WQY 字型不存在，正在下載（~5 MB）…")
+            _WQY_RUNTIME_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp = _WQY_RUNTIME_PATH.with_suffix(".tmp")
+            urllib.request.urlretrieve(url, str(tmp))
+            if tmp.stat().st_size > 1_000_000:
+                tmp.rename(_WQY_RUNTIME_PATH)
+                log(f"  WQY 字型下載完成（{_WQY_RUNTIME_PATH.stat().st_size // 1024:,} KB）")
+            else:
+                tmp.unlink(missing_ok=True)
+                log("  WQY 字型下載失敗（檔案過小）")
+        except Exception as e:
+            log(f"  WQY 字型下載失敗：{e}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -100,6 +136,10 @@ def _register_cjk_font(log) -> str:
     """向 reportlab 登記 CJK 字型，回傳登記成功的字型名稱（空字串=失敗）。"""
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
+
+    # Linux 容器：確保 WQY 字型可用（若 apt 未安裝則下載）
+    if platform.system() != "Windows":
+        _ensure_wqy_font(log)
 
     for path, idx, name in _cjk_candidates():
         if not Path(path).exists():
