@@ -1,10 +1,11 @@
 FROM python:3.13-slim
 
-# 安裝系統套件：Calibre + Noto CJK 字型 + 必要工具
+# 安裝系統套件：Calibre + WQY CJK TrueType 字型 + 必要工具
+# fonts-noto-cjk 已移除：NotoSansCJK 是 CFF/PostScript 格式，reportlab 不支援
+# fonts-wqy-microhei / wqy-zenhei 是 TrueType 格式，reportlab 可直接使用
 # xvfb 提供虛擬 X display 讓 Calibre QtWebEngine 正常運作
 RUN apt-get update && apt-get install -y --no-install-recommends \
         calibre \
-        fonts-noto-cjk \
         fonts-wqy-microhei \
         fonts-wqy-zenhei \
         xvfb \
