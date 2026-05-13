@@ -27,7 +27,7 @@ _LANG_NAMES: dict[str, str] = {
     "zh-cn": "簡體中文", "zh-tw": "繁體中文", "zh": "中文",
 }
 
-_CHUNK_CHARS = 3000   # 每批次最大字元數（避免 token 超限）
+_CHUNK_CHARS = 8000   # 每批次最大字元數
 _TRANSLATE_MODEL = "gemini-2.5-flash"   # 最新版，速度快、品質佳
 
 
@@ -133,7 +133,7 @@ def translate_paragraphs(
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 temperature=0.1,
-                max_output_tokens=8192,
+                max_output_tokens=65536,
             ),
         )
         translated = resp.text.strip()

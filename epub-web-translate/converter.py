@@ -205,11 +205,26 @@ def _extract_chapters_html(epub_path: Path) -> tuple[str, list[str]]:
 
 
 def _html_to_plain(html: str) -> str:
-    """將 HTML 章節轉為純文字（用於語言偵測與翻譯）。"""
+    """將 HTML 章節轉為純文字（用於語言偵測與翻譯）。
+    以段落層級元素分割，確保 _split_paragraphs 能正確切割。
+    """
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "lxml")
     body = soup.find("body") or soup
-    return body.get_text("\n", strip=True)
+    BLOCK = {"p", "h1", "h2", "h3", "h4", "h5", "h6",
+             "li", "blockquote", "pre", "div", "td", "th"}
+    parts: list[str] = []
+    for tag in body.find_all(BLOCK):
+        # 跳過巢狀 block（避免重複）
+        if any(p.name in BLOCK for p in tag.parents if p != body):
+            continue
+        t = tag.get_text(" ", strip=True)
+        if t:
+            parts.append(t)
+    if parts:
+        return "\n\n".join(parts)
+    # fallback：直接用雙換行
+    return body.get_text("\n\n", strip=True)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
