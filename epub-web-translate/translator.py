@@ -28,7 +28,7 @@ _LANG_NAMES: dict[str, str] = {
 }
 
 _CHUNK_CHARS = 3000   # 每批次最大字元數（避免 token 超限）
-_TRANSLATE_MODEL = "gemini-2.0-flash-lite"   # 免費輕量版，適合翻譯
+_TRANSLATE_MODEL = "gemini-2.5-flash"   # 最新版，速度快、品質佳
 
 
 # ── 語言偵測 ──────────────────────────────────────────────────────────────────
