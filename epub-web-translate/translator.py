@@ -1,8 +1,8 @@
 """
 translator.py — 語言偵測 + Gemini Flash 翻譯引擎
 ==================================================
-依賴：langdetect、google-generativeai
-模型：gemini-2.0-flash（免費、快、繁中品質佳）
+依賴：langdetect、google-genai
+模型：gemini-2.5-flash（Tier 1、速度快、繁中品質佳）
 
 翻譯模式：
   none      — 不翻譯（直接輸出）
@@ -15,7 +15,7 @@ translator.py — 語言偵測 + Gemini Flash 翻譯引擎
 """
 
 from __future__ import annotations
-import os, re
+import os, re, time
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
@@ -152,6 +152,7 @@ def translate_chapters(
     偵測語言，並翻譯所有章節文字。
     回傳 (detected_lang, translated_chapters)。
     若語言為 CJK 或 mode=='none'，直接回傳原文。
+    每 180 秒自動 log 一次整體進度。
     """
     # 偵測語言（取前兩章合併樣本）
     sample = "\n\n".join(chapters_text[:2])[:4000]
@@ -163,14 +164,30 @@ def translate_chapters(
             log("  書籍已是 CJK 語言，跳過翻譯。")
         return lang, chapters_text
 
+    total = len(chapters_text)
     translated: list[str] = []
+    t_start = time.time()
+    t_last_report = t_start
+
     for ci, text in enumerate(chapters_text):
-        log(f"  翻譯章節 {ci + 1}/{len(chapters_text)}…")
+        log(f"  翻譯章節 {ci + 1}/{total}…")
         paras = _split_paragraphs(text)
         if not paras:
             translated.append(text)
-            continue
-        translated_paras = translate_paragraphs(paras, mode, lang, log)
-        translated.append("\n\n".join(translated_paras))
+        else:
+            translated_paras = translate_paragraphs(paras, mode, lang, log)
+            translated.append("\n\n".join(translated_paras))
 
+        # 每 180 秒回報一次整體進度
+        now = time.time()
+        if now - t_last_report >= 180:
+            elapsed = int(now - t_start)
+            pct = int((ci + 1) / total * 100)
+            remaining = int(elapsed / (ci + 1) * (total - ci - 1)) if ci + 1 < total else 0
+            log(f"  ── 進度回報：{ci + 1}/{total} 章（{pct}%）"
+                f"  已用 {elapsed}s  預估剩餘 {remaining}s ──")
+            t_last_report = now
+
+    elapsed_total = int(time.time() - t_start)
+    log(f"  ✓ 翻譯完成：共 {total} 章，總耗時 {elapsed_total}s")
     return lang, translated
