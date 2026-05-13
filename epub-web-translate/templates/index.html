@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPUB / PDF 轉換器（含翻譯）</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    #drop-zone.drag-over { border-color:#2563EB; background-color:#EFF6FF; }
+    .bar-fill { transition: width 0.3s ease; }
+    #log-box::-webkit-scrollbar { width:4px; }
+    #log-box::-webkit-scrollbar-thumb { background:#374151; border-radius:2px; }
+    @media (pointer:coarse) { #drop-hint { display:none; } }
+    .trans-card { transition: border-color .15s, box-shadow .15s; }
+    .trans-card.selected { border-color:#2563EB; box-shadow:0 0 0 2px #93C5FD; }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+
+<!-- header -->
+<header class="bg-slate-800 text-white px-6 py-4 flex items-center justify-between shadow-md">
+  <div>
+    <h1 class="text-xl font-bold tracking-wide">EPUB / PDF 轉換器</h1>
+    <p class="text-slate-400 text-xs mt-0.5">
+      EPUB→PDF・EPUB→Markdown・PDF→EPUB　含多語言翻譯
+      {% if calibre_ok %}
+        <span class="ml-2 text-green-400">● Calibre 已就緒</span>
+      {% else %}
+        <span class="ml-2 text-yellow-400">● reportlab 備援模式</span>
+      {% endif %}
+    </p>
+  </div>
+  {% if has_password %}
+  <a href="/logout" class="text-slate-400 hover:text-white text-xs border border-slate-600 hover:border-slate-400 rounded px-3 py-1.5 transition-colors">登出</a>
+  {% endif %}
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- ① 上傳區 -->
+  <section class="bg-white rounded-2xl shadow p-6">
+    <h2 class="text-slate-700 font-semibold text-base mb-4">① 選擇檔案</h2>
+
+    <div id="drop-zone"
+         class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
+         onclick="document.getElementById('file-input').click()">
+      <svg class="mx-auto h-12 w-12 text-slate-300 mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.632-8.683 3 3 0 0 1 3.865-3.548 3 3 0 0 1 5.034 0 3 3 0 0 1 3.865 3.548A4.5 4.5 0 0 1 17.25 19.5h-10.5Z"/>
+      </svg>
+      <p class="text-slate-500 text-sm" id="drop-hint">拖放 .epub 或 .pdf 到這裡，或點擊選擇</p>
+      <p class="text-slate-400 text-xs mt-1">可選多個檔案・最大 200 MB</p>
+    </div>
+    <input id="file-input" type="file" accept=".epub,.pdf" multiple class="hidden" />
+
+    <!-- 輸出格式 -->
+    <div class="mt-4 flex flex-wrap gap-4 items-center">
+      <span class="text-slate-600 text-sm font-medium">輸出格式：</span>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="pdf" checked class="accent-blue-600" /> PDF 文件
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="md" class="accent-blue-600" /> Markdown (.md)
+      </label>
+      <label class="flex items-center gap-1.5 cursor-pointer text-sm">
+        <input type="radio" name="fmt" value="both" class="accent-blue-600" /> PDF + Markdown
+      </label>
+    </div>
+
+    <!-- ② 翻譯選項 -->
+    <div class="mt-5">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="text-slate-600 text-sm font-medium">翻譯選項：</span>
+        <span class="text-slate-400 text-xs">偵測到非中文書籍時適用（使用 Claude AI）</span>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+        <!-- 不翻譯 -->
+        <label class="trans-card selected border-2 rounded-xl p-4 cursor-pointer flex gap-3"
+               data-trans="none">
+          <input type="radio" name="trans" value="none" checked class="mt-0.5 accent-blue-600 shrink-0" />
+          <div>
+            <p class="text-sm font-semibold text-slate-700">① 不翻譯</p>
+            <p class="text-xs text-slate-400 mt-1">保留原文輸出，不作任何語言處理。</p>
+          </div>
+        </label>
+
+        <!-- 雙語對照 -->
+        <label class="trans-card border-2 border-slate-200 rounded-xl p-4 cursor-pointer flex gap-3"
+               data-trans="bilingual">
+          <input type="radio" name="trans" value="bilingual" class="mt-0.5 accent-blue-600 shrink-0" />
+          <div>
+            <p class="text-sm font-semibold text-slate-700">② 繁中雙語</p>
+            <p class="text-xs text-slate-400 mt-1">每段原文下方附繁體中文對照譯文。</p>
+            <p class="text-xs text-amber-500 mt-1">⚠ 較耗時（逐段翻譯）</p>
+          </div>
+        </label>
+
+        <!-- 全繁體中文 -->
+        <label class="trans-card border-2 border-slate-200 rounded-xl p-4 cursor-pointer flex gap-3"
+               data-trans="zh">
+          <input type="radio" name="trans" value="zh" class="mt-0.5 accent-blue-600 shrink-0" />
+          <div>
+            <p class="text-sm font-semibold text-slate-700">③ 全繁體中文</p>
+            <p class="text-xs text-slate-400 mt-1">將全書翻譯為繁體中文輸出。</p>
+            <p class="text-xs text-amber-500 mt-1">⚠ 較耗時（逐段翻譯）</p>
+          </div>
+        </label>
+
+      </div>
+      <p class="text-xs text-slate-400 mt-2">
+        若書籍已是中文（繁/簡）或日韓文，翻譯選項將自動跳過。
+      </p>
+    </div>
+  </section>
+
+  <!-- 檔案清單 -->
+  <section id="file-list-section" class="bg-white rounded-2xl shadow p-6 hidden">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-slate-700 font-semibold text-base">③ 檔案清單</h2>
+      <button id="clear-btn"
+              class="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 rounded px-2 py-1 transition-colors">
+        清空清單
+      </button>
+    </div>
+
+    <div id="file-list" class="space-y-2"></div>
+
+    <!-- 進度條 -->
+    <div id="progress-area" class="hidden mt-4">
+      <div class="flex justify-between text-xs text-slate-500 mb-1">
+        <span id="progress-label">轉換中…</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="bg-slate-100 rounded-full h-2">
+        <div id="progress-bar" class="bar-fill bg-blue-500 h-2 rounded-full" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- 轉換按鈕 -->
+    <button id="convert-btn"
+            class="mt-4 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800
+                   text-white font-semibold rounded-xl py-3 text-sm transition-colors
+                   flex items-center justify-center gap-2">
+      <span>▶ 開始轉換</span>
+    </button>
+  </section>
+
+  <!-- 轉換記錄 -->
+  <section id="log-section" class="bg-slate-800 rounded-2xl shadow p-5 hidden">
+    <h2 class="text-slate-300 font-semibold text-sm mb-3">轉換記錄</h2>
+    <pre id="log-box"
+         class="text-green-400 text-xs leading-5 overflow-y-auto max-h-64 whitespace-pre-wrap break-all"></pre>
+  </section>
+
+</main>
+
+<!-- 完成 Modal -->
+<div id="done-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+  <div class="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full text-center">
+    <p id="done-title" class="text-xl font-bold mb-2"></p>
+    <p class="text-slate-500 text-sm mb-5">請在檔案清單中點擊 ⬇ 下載轉換後的檔案。</p>
+    <button onclick="document.getElementById('done-modal').classList.add('hidden')"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors">
+      關閉
+    </button>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

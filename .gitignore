@@ -16,6 +16,7 @@ package-lock.json
 *.js
 # 但 Web 版前端 JS 要保留
 !epub-web/static/*.js
+!epub-web-translate/static/*.js
 *.sh
 taiwan-finance-shorts.py
 create_answer001.py
