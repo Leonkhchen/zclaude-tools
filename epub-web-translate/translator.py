@@ -1,19 +1,23 @@
 """
-translator.py — 語言偵測 + Claude 翻譯引擎
-============================================
-依賴：langdetect、anthropic
-模型：claude-haiku-4-5（速度快、成本低）
+translator.py — 語言偵測 + Gemini Flash 翻譯引擎
+==================================================
+依賴：langdetect、google-generativeai
+模型：gemini-2.0-flash（免費、快、繁中品質佳）
 
 翻譯模式：
   none      — 不翻譯（直接輸出）
   bilingual — 雙語對照（原文 + 繁體中文）
   zh        — 全繁體中文
+
+環境變數：
+  GEMINI_API_KEY  — Google AI Studio 免費取得
+                    https://aistudio.google.com
 """
 
 from __future__ import annotations
 import os, re
 
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # ISO 639-1 → 中文名稱
 _LANG_NAMES: dict[str, str] = {
@@ -24,7 +28,7 @@ _LANG_NAMES: dict[str, str] = {
 }
 
 _CHUNK_CHARS = 3000   # 每批次最大字元數（避免 token 超限）
-_TRANSLATE_MODEL = "claude-haiku-4-5"
+_TRANSLATE_MODEL = "gemini-2.0-flash"
 
 
 # ── 語言偵測 ──────────────────────────────────────────────────────────────────
@@ -86,14 +90,21 @@ def translate_paragraphs(
     mode: 'zh'（全繁中）| 'bilingual'（雙語對照）
     回傳翻譯後段落（bilingual 回傳原文與譯文交錯）。
     """
-    if not ANTHROPIC_API_KEY:
-        raise RuntimeError("未設定 ANTHROPIC_API_KEY 環境變數，無法翻譯")
+    if not GEMINI_API_KEY:
+        raise RuntimeError(
+            "未設定 GEMINI_API_KEY 環境變數，無法翻譯。\n"
+            "請至 https://aistudio.google.com 免費取得 API Key，"
+            "並在 Zeabur Variables 中設定 GEMINI_API_KEY。"
+        )
 
-    import anthropic
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    import google.generativeai as genai
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel(_TRANSLATE_MODEL)
+
     lang_name = lang_display(src_lang)
     chunks = _chunk_paragraphs(paras)
-    log(f"  翻譯中（{lang_name} → 繁體中文）：{len(paras)} 段落，共 {len(chunks)} 批次…")
+    log(f"  翻譯中（{lang_name} → 繁體中文，模型：{_TRANSLATE_MODEL}）")
+    log(f"  共 {len(paras)} 段落，分 {len(chunks)} 批次…")
 
     result: list[str] = []
 
@@ -103,29 +114,28 @@ def translate_paragraphs(
         joined = "\n\n".join(chunk)
 
         if mode == "zh":
-            system = (
-                "你是專業的繁體中文翻譯員。"
-                "請將使用者提供的文字完整翻譯為繁體中文。"
-                "規則：①保持段落結構（空行分隔）②只輸出譯文，不加任何說明"
-                "③專有名詞首次出現時保留原文並括號附中文，之後只用中文。"
+            prompt = (
+                f"你是專業繁體中文翻譯員。請將以下{lang_name}文字完整翻譯為繁體中文。\n"
+                "規則：①保持段落結構（空行分隔各段）②只輸出繁體中文譯文，不加說明"
+                "③專有名詞首次出現保留原文並括號附中文。\n\n"
+                f"{joined}"
             )
-            user_msg = f"以下是{lang_name}文字，請翻譯為繁體中文：\n\n{joined}"
         else:  # bilingual
-            system = (
-                "你是專業的雙語排版翻譯員。"
-                "請將使用者提供的文字輸出為雙語對照格式："
-                "每個段落先輸出原文，緊接著輸出繁體中文譯文（以【譯】開頭）。"
-                "規則：①段落之間以空行分隔②只輸出對照文字，不加額外說明。"
+            prompt = (
+                f"你是專業雙語排版翻譯員。請將以下{lang_name}文字輸出為雙語對照格式。\n"
+                "規則：①每段先輸出原文，下一行輸出【譯】繁體中文譯文"
+                "②不同段落之間以空行分隔③只輸出對照文字，不加任何說明。\n\n"
+                f"{joined}"
             )
-            user_msg = f"以下是{lang_name}文字，請輸出雙語對照：\n\n{joined}"
 
-        msg = client.messages.create(
-            model=_TRANSLATE_MODEL,
-            max_tokens=8192,
-            system=system,
-            messages=[{"role": "user", "content": user_msg}],
+        resp = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                temperature=0.1,
+                max_output_tokens=8192,
+            ),
         )
-        translated = msg.content[0].text.strip()
+        translated = resp.text.strip()
         translated_paras = [p.strip() for p in re.split(r"\n{2,}", translated) if p.strip()]
         result.extend(translated_paras)
 
