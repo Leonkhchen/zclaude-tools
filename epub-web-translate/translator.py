@@ -28,7 +28,7 @@ _LANG_NAMES: dict[str, str] = {
 }
 
 _CHUNK_CHARS = 3000   # 每批次最大字元數（避免 token 超限）
-_TRANSLATE_MODEL = "gemini-2.0-flash"
+_TRANSLATE_MODEL = "gemini-2.0-flash-lite"   # 免費輕量版，適合翻譯
 
 
 # ── 語言偵測 ──────────────────────────────────────────────────────────────────
@@ -97,10 +97,10 @@ def translate_paragraphs(
             "並在 Zeabur Variables 中設定 GEMINI_API_KEY。"
         )
 
-    import google.generativeai as genai
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(_TRANSLATE_MODEL)
+    from google import genai
+    from google.genai import types as genai_types
 
+    client = genai.Client(api_key=GEMINI_API_KEY)
     lang_name = lang_display(src_lang)
     chunks = _chunk_paragraphs(paras)
     log(f"  翻譯中（{lang_name} → 繁體中文，模型：{_TRANSLATE_MODEL}）")
@@ -128,9 +128,10 @@ def translate_paragraphs(
                 f"{joined}"
             )
 
-        resp = model.generate_content(
-            prompt,
-            generation_config=genai.GenerationConfig(
+        resp = client.models.generate_content(
+            model=_TRANSLATE_MODEL,
+            contents=prompt,
+            config=genai_types.GenerateContentConfig(
                 temperature=0.1,
                 max_output_tokens=8192,
             ),
