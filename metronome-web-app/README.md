@@ -31,10 +31,13 @@
 
 ```
 metronome-web-app/
-├── index.html      # 完整應用（HTML + CSS + JS）
+├── index.html      # 完整應用（HTML + CSS + JS），畫面左上角有連到 guide.html 的小字連結
+├── guide.html      # 使用說明的網頁版（使用說明.md 的 HTML 呈現，與 index.html 一起部署）
 ├── README.md        # 本檔案（專案說明／技術文件）
-└── 使用說明.md        # 一般使用者操作指南
+└── 使用說明.md        # 使用說明的原始 Markdown 版本
 ```
+
+> 註：`guide.html` 的檔名刻意使用英文，因為部署環境（Kubernetes ConfigMap）的檔名鍵值不接受中文字元；中文版說明保留在 `使用說明.md`，內容與 `guide.html` 同步維護。
 
 ## 本機開發
 
