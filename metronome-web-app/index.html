@@ -1,0 +1,878 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Pendulo — 節拍器</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pendulo">
+<meta name="theme-color" content="#1b120b">
+<meta name="description" content="A precision metronome for practice, tuned for iPhone.">
+<style>
+  :root{
+    color-scheme: light dark;
+    --bg: #e9dfc7;
+    --bg-grain: #ded1ad;
+    --case: #7a4a2c;
+    --case-deep: #5c3620;
+    --case-edge: #915a34;
+    --ink: #2b1c10;
+    --ink-soft: #6b563f;
+    --brass: #b3833c;
+    --brass-bright: #dda94f;
+    --brass-hot: #f2c565;
+    --line: rgba(43,28,16,0.22);
+    --line-soft: rgba(43,28,16,0.12);
+    --panel: #f2e9d2;
+    --danger: #a4432c;
+    --shadow: rgba(30,18,8,0.35);
+    --focus: #2b6cb0;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #17100a;
+      --bg-grain: #1e150d;
+      --case: #3a2314;
+      --case-deep: #20130b;
+      --case-edge: #4d2e1a;
+      --ink: #f1e4cc;
+      --ink-soft: #b9a180;
+      --brass: #c99a49;
+      --brass-bright: #e8ba5d;
+      --brass-hot: #ffd684;
+      --line: rgba(241,228,204,0.16);
+      --line-soft: rgba(241,228,204,0.08);
+      --panel: #241a10;
+      --danger: #d9663f;
+      --shadow: rgba(0,0,0,0.6);
+      --focus: #6fa8dc;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #17100a;
+    --bg-grain: #1e150d;
+    --case: #3a2314;
+    --case-deep: #20130b;
+    --case-edge: #4d2e1a;
+    --ink: #f1e4cc;
+    --ink-soft: #b9a180;
+    --brass: #c99a49;
+    --brass-bright: #e8ba5d;
+    --brass-hot: #ffd684;
+    --line: rgba(241,228,204,0.16);
+    --line-soft: rgba(241,228,204,0.08);
+    --panel: #241a10;
+    --danger: #d9663f;
+    --shadow: rgba(0,0,0,0.6);
+    --focus: #6fa8dc;
+  }
+
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{
+    height: 100%;
+    margin: 0;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+  body{
+    background:
+      repeating-linear-gradient(115deg, var(--bg-grain) 0 2px, transparent 2px 46px),
+      var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .stage{
+    width: 100%;
+    max-width: 480px;
+    height: 100vh;
+    height: 100dvh;
+    padding: max(14px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .topbar{
+    display: flex;
+    justify-content: center;
+    flex: 0 0 auto;
+    padding: 0 4px;
+  }
+  .topbar a{
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-bottom: 1px solid var(--line);
+    padding: 1px 0 2px;
+  }
+  .topbar a:active{ color: var(--brass-bright); border-color: var(--brass-bright); }
+
+  .brand{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex: 0 0 auto;
+    padding: 2px 4px;
+  }
+  .brand-mark{
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-style: italic;
+    font-size: 15px;
+    letter-spacing: 0.06em;
+    color: var(--ink-soft);
+  }
+  .brand-mark b{ color: var(--brass-bright); font-style: normal; }
+  .theme-toggle{
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink-soft);
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .theme-toggle:active{ transform: scale(0.94); }
+
+  /* ---- Case: pendulum + graduated arc ---- */
+  .case{
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 150px;
+    background:
+      radial-gradient(120% 90% at 50% 0%, var(--case-edge) 0%, var(--case) 55%, var(--case-deep) 100%);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25), 0 10px 24px -12px var(--shadow);
+  }
+  .case::after{
+    content:"";
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(100deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 30px);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
+  .scale{
+    position: absolute;
+    left: 50%; top: 6%;
+    width: 88%;
+    transform: translateX(-50%);
+    overflow: visible;
+  }
+  .scale text{
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 8.5px;
+    fill: rgba(241,228,204,0.55);
+  }
+  .scale .tick{ stroke: rgba(241,228,204,0.35); stroke-width: 1; }
+  .scale .arc{ fill: none; stroke: rgba(241,228,204,0.28); stroke-width: 1; }
+  .scale .mark-active text{ fill: var(--brass-hot); font-weight: 600; }
+  .scale .mark-active .tick{ stroke: var(--brass-hot); stroke-width: 1.6; }
+
+  .pivot-wrap{
+    position: absolute;
+    left: 50%; bottom: 8%;
+    transform: translateX(-50%);
+    width: 4px; height: 60%;
+  }
+  .rod{
+    position: absolute;
+    left: 50%; bottom: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, var(--brass-bright), var(--brass) 70%, var(--brass-hot));
+    border-radius: 3px;
+    transform-origin: bottom center;
+    transform: rotate(0deg);
+    box-shadow: 0 0 10px rgba(0,0,0,0.25);
+  }
+  .bob{
+    position: absolute;
+    left: 50%; top: 30%;
+    width: 20px; height: 14px;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(155deg, var(--brass-hot), var(--brass) 55%, var(--brass-bright));
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.25);
+  }
+  .pivot{
+    position: absolute;
+    left: 50%; bottom: -4px;
+    width: 10px; height: 10px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--brass-hot), var(--brass) 70%);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .case.tick-flash{ }
+  .case .flashlight{
+    position: absolute; inset: 0;
+    background: radial-gradient(60% 50% at 50% 20%, var(--brass-hot) 0%, transparent 70%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 90ms ease-out;
+  }
+  .case.flash .flashlight{ opacity: 0.16; }
+
+  /* ---- Readout ---- */
+  .readout{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+  }
+  .step{
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 22px;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  .step:active{ background: var(--line-soft); transform: scale(0.95); }
+  .bpm-display{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 150px;
+  }
+  .bpm-number{
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 64px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .bpm-unit{
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .tempo-term{
+    text-align: center;
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--brass-bright);
+    flex: 0 0 auto;
+    min-height: 20px;
+  }
+
+  .bpm-slider{
+    flex: 0 0 auto;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 30px;
+    background: transparent;
+  }
+  .bpm-slider::-webkit-slider-runnable-track{
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--brass) 0%, var(--brass) var(--fill,50%), var(--line-soft) var(--fill,50%));
+  }
+  .bpm-slider::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    width: 24px; height: 24px;
+    margin-top: -10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--brass-hot), var(--brass) 75%);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+    border: none;
+  }
+
+  /* ---- Beats ---- */
+  .beats{
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 2px 0;
+    min-height: 22px;
+  }
+  .beat-dot{
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--line-soft);
+    border: 1px solid var(--line);
+    transition: background 60ms ease-out, box-shadow 60ms ease-out, transform 60ms ease-out;
+  }
+  .beat-dot.accent{ width: 15px; height: 15px; }
+  .beat-dot.lit{
+    background: var(--brass-bright);
+    border-color: var(--brass-bright);
+    transform: scale(1.15);
+  }
+  .beat-dot.accent.lit{
+    background: var(--brass-hot);
+    border-color: var(--brass-hot);
+    box-shadow: 0 0 10px var(--brass-hot);
+  }
+
+  /* ---- Controls ---- */
+  .controls{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .control-group{
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 4px;
+  }
+  .chip{
+    min-width: 34px; height: 34px;
+    padding: 0 8px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    font-size: 14px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .chip:active{ background: var(--line-soft); }
+  .chip.active{
+    background: var(--brass);
+    color: #241608;
+    font-weight: 600;
+  }
+  #tsLabel{
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    min-width: 34px;
+    text-align: center;
+  }
+  .tap{
+    flex: 0 0 auto;
+    height: 42px;
+    padding: 0 16px;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+  .tap:active{ background: var(--brass); color: #241608; }
+
+  .volume-row{
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 2px;
+  }
+  .volume-row svg{ flex: 0 0 auto; color: var(--ink-soft); }
+  .volume-row input[type="range"]{
+    -webkit-appearance: none;
+    appearance: none;
+    flex: 1 1 auto;
+    height: 24px;
+    background: transparent;
+  }
+  .volume-row input[type="range"]::-webkit-slider-runnable-track{
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--ink-soft) 0%, var(--ink-soft) var(--fill,70%), var(--line-soft) var(--fill,70%));
+  }
+  .volume-row input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    width: 16px; height: 16px;
+    margin-top: -6.5px;
+    border-radius: 50%;
+    background: var(--ink-soft);
+    border: none;
+  }
+
+  .play-btn{
+    flex: 0 0 auto;
+    align-self: center;
+    width: 84px; height: 84px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 35% 28%, var(--brass-hot), var(--brass) 70%, var(--brass) 100%);
+    box-shadow: 0 8px 18px -6px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    color: #24160a;
+    margin: 2px 0 0;
+  }
+  .play-btn:active{ transform: scale(0.96); }
+  .play-btn.playing{
+    background: radial-gradient(circle at 35% 28%, #e98a6b, var(--danger) 70%);
+  }
+  .play-btn svg{ width: 30px; height: 30px; }
+
+  button, input{ font: inherit; }
+  button{ cursor: pointer; }
+  :focus-visible{ outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  @media (max-height: 700px){
+    .bpm-number{ font-size: 52px; }
+    .play-btn{ width: 72px; height: 72px; }
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <div class="topbar"><a href="guide.html" target="_blank" rel="noopener">使用說明</a></div>
+
+  <header class="brand">
+    <span class="brand-mark"><b>Péndulo</b> · 節拍器</span>
+    <button class="theme-toggle" id="themeToggle" aria-label="切換淺色／深色外觀">◐</button>
+  </header>
+
+  <div class="case" id="case">
+    <svg class="scale" viewBox="0 0 300 60" aria-hidden="true"></svg>
+    <div class="pivot-wrap">
+      <div class="rod" id="rod">
+        <div class="bob" id="bob"></div>
+      </div>
+    </div>
+    <div class="pivot"></div>
+    <div class="flashlight"></div>
+  </div>
+
+  <div class="readout">
+    <button class="step" id="bpmDown" aria-label="降低速度">−</button>
+    <div class="bpm-display">
+      <span class="bpm-number" id="bpmNumber">100</span>
+      <span class="bpm-unit">BPM</span>
+    </div>
+    <button class="step" id="bpmUp" aria-label="提高速度">＋</button>
+  </div>
+
+  <div class="tempo-term" id="tempoTerm">Moderato · 中板</div>
+
+  <input type="range" class="bpm-slider" id="bpmSlider" min="30" max="260" step="1" value="100" aria-label="速度滑桿">
+
+  <div class="beats" id="beats"></div>
+
+  <div class="controls">
+    <div class="control-group" role="group" aria-label="拍號">
+      <button class="chip" id="tsMinus" aria-label="減少每小節拍數">−</button>
+      <span id="tsLabel">4/4</span>
+      <button class="chip" id="tsPlus" aria-label="增加每小節拍數">＋</button>
+    </div>
+    <div class="control-group" role="group" aria-label="細分">
+      <button class="chip subdiv active" data-val="1">♩</button>
+      <button class="chip subdiv" data-val="2">♫</button>
+      <button class="chip subdiv" data-val="3">3</button>
+    </div>
+    <button class="tap" id="tapTempo">TAP</button>
+  </div>
+
+  <div class="volume-row">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+    <input type="range" id="volumeSlider" min="0" max="100" step="1" value="75" aria-label="音量">
+  </div>
+
+  <button class="play-btn" id="playBtn" aria-label="開始節拍器">
+    <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+  </button>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- state ---------- */
+  var bpm = 100;
+  var beatsPerMeasure = 4;
+  var subdivision = 1; // 1 quarter, 2 eighths, 3 triplet
+  var volume = 0.75;
+  var isPlaying = false;
+
+  var audioCtx = null;
+  var masterGain = null;
+  var currentBeat = 0;
+  var currentSub = 0;
+  var nextNoteTime = 0.0;
+  var scheduleAheadTime = 0.12;
+  var lookahead = 25.0;
+  var timerID = null;
+  var noteQueue = []; // {time, beat, sub}
+  var rafID = null;
+
+  var pendulumAnim = null;
+  var wakeLock = null;
+
+  /* ---------- elements ---------- */
+  var $case = document.getElementById('case');
+  var $bpmNumber = document.getElementById('bpmNumber');
+  var $bpmSlider = document.getElementById('bpmSlider');
+  var $bpmDown = document.getElementById('bpmDown');
+  var $bpmUp = document.getElementById('bpmUp');
+  var $tempoTerm = document.getElementById('tempoTerm');
+  var $beats = document.getElementById('beats');
+  var $tsLabel = document.getElementById('tsLabel');
+  var $tsMinus = document.getElementById('tsMinus');
+  var $tsPlus = document.getElementById('tsPlus');
+  var $subdivBtns = document.querySelectorAll('.subdiv');
+  var $tapTempo = document.getElementById('tapTempo');
+  var $volumeSlider = document.getElementById('volumeSlider');
+  var $playBtn = document.getElementById('playBtn');
+  var $playIcon = document.getElementById('playIcon');
+  var $rod = document.getElementById('rod');
+  var $themeToggle = document.getElementById('themeToggle');
+  var $scale = document.querySelector('.scale');
+
+  /* ---------- tempo term ---------- */
+  var TERMS = [
+    {max:40,  it:'Grave',      zh:'極緩板'},
+    {max:60,  it:'Largo',      zh:'廣板'},
+    {max:76,  it:'Adagio',     zh:'慢板'},
+    {max:108, it:'Andante',    zh:'行板'},
+    {max:120, it:'Moderato',   zh:'中板'},
+    {max:168, it:'Allegro',    zh:'快板'},
+    {max:208, it:'Presto',     zh:'急板'},
+    {max:Infinity, it:'Prestissimo', zh:'最急板'}
+  ];
+  function tempoTermFor(v){
+    for (var i=0;i<TERMS.length;i++){ if (v < TERMS[i].max) return TERMS[i]; }
+    return TERMS[TERMS.length-1];
+  }
+
+  /* ---------- graduated scale (decorative) ---------- */
+  var SCALE_MARKS = [40,60,80,100,120,144,168,200];
+  function buildScale(){
+    var w = 300, cx = 150, cy = 56, r = 50;
+    var startAngle = -170, endAngle = -10; // degrees, arc across top
+    var svg = '<path class="arc" d="' + arcPath(cx,cy,r,startAngle,endAngle) + '"></path>';
+    SCALE_MARKS.forEach(function(v){
+      var t = (v - 40) / (200 - 40);
+      var ang = startAngle + t*(endAngle-startAngle);
+      var rad = ang * Math.PI/180;
+      var x1 = cx + r*Math.cos(rad), y1 = cy + r*Math.sin(rad);
+      var x2 = cx + (r-7)*Math.cos(rad), y2 = cy + (r-7)*Math.sin(rad);
+      var tx = cx + (r-16)*Math.cos(rad), ty = cy + (r-16)*Math.sin(rad);
+      svg += '<g class="mark" data-v="'+v+'">' +
+             '<line class="tick" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"></line>' +
+             '<text x="'+tx+'" y="'+ty+'" text-anchor="middle" dominant-baseline="middle">'+v+'</text>' +
+             '</g>';
+    });
+    $scale.innerHTML = svg;
+  }
+  function arcPath(cx,cy,r,a0,a1){
+    var p0 = polar(cx,cy,r,a0), p1 = polar(cx,cy,r,a1);
+    return 'M '+p0.x+' '+p0.y+' A '+r+' '+r+' 0 0 1 '+p1.x+' '+p1.y;
+  }
+  function polar(cx,cy,r,deg){ var rad=deg*Math.PI/180; return {x:cx+r*Math.cos(rad), y:cy+r*Math.sin(rad)}; }
+  function updateScaleHighlight(){
+    var marks = $scale.querySelectorAll('.mark');
+    var closest = null, closestDist = Infinity;
+    marks.forEach(function(m){
+      var v = parseInt(m.getAttribute('data-v'),10);
+      var d = Math.abs(v - bpm);
+      if (d < closestDist){ closestDist = d; closest = m; }
+      m.classList.remove('mark-active');
+    });
+    if (closest) closest.classList.add('mark-active');
+  }
+
+  /* ---------- beat dots ---------- */
+  function buildBeats(){
+    $beats.innerHTML = '';
+    for (var i=0;i<beatsPerMeasure;i++){
+      var d = document.createElement('div');
+      d.className = 'beat-dot' + (i===0 ? ' accent' : '');
+      $beats.appendChild(d);
+    }
+  }
+  function litBeat(i){
+    var dots = $beats.children;
+    for (var k=0;k<dots.length;k++) dots[k].classList.remove('lit');
+    if (dots[i]) dots[i].classList.add('lit');
+    setTimeout(function(){ if (dots[i]) dots[i].classList.remove('lit'); }, 110);
+  }
+
+  /* ---------- UI sync ---------- */
+  function refreshDisplay(){
+    $bpmNumber.textContent = bpm;
+    $bpmSlider.value = bpm;
+    var pct = ((bpm - $bpmSlider.min) / ($bpmSlider.max - $bpmSlider.min)) * 100;
+    $bpmSlider.style.setProperty('--fill', pct + '%');
+    var term = tempoTermFor(bpm);
+    $tempoTerm.textContent = term.it + ' · ' + term.zh;
+    $tsLabel.textContent = beatsPerMeasure + '/4';
+    updateScaleHighlight();
+    updatePendulumSpeed();
+  }
+  function setBpm(v){
+    bpm = Math.max(30, Math.min(260, Math.round(v)));
+    refreshDisplay();
+  }
+
+  /* ---------- pendulum motion ---------- */
+  function updatePendulumSpeed(){
+    var periodMs = (60000 / bpm);
+    if (pendulumAnim){
+      pendulumAnim.effect.updateTiming({ duration: periodMs });
+    } else if (isPlaying){
+      startPendulumAnim(periodMs);
+    }
+  }
+  function startPendulumAnim(periodMs){
+    pendulumAnim = $rod.animate(
+      [
+        { transform: 'rotate(-22deg)' },
+        { transform: 'rotate(22deg)' }
+      ],
+      {
+        duration: periodMs,
+        iterations: Infinity,
+        direction: 'alternate',
+        easing: 'cubic-bezier(0.45,0.05,0.55,0.95)'
+      }
+    );
+  }
+  function stopPendulumAnim(){
+    if (pendulumAnim){ pendulumAnim.cancel(); pendulumAnim = null; }
+    $rod.style.transform = 'rotate(0deg)';
+  }
+
+  /* ---------- audio click ---------- */
+  function playClick(time, kind){
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(masterGain);
+    var freq, peak, dur;
+    if (kind === 'accent'){ freq = 1600; peak = 1.0; dur = 0.055; }
+    else if (kind === 'beat'){ freq = 1100; peak = 0.68; dur = 0.045; }
+    else { freq = 820; peak = 0.32; dur = 0.03; }
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, time);
+    gain.gain.setValueAtTime(0.00001, time);
+    gain.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0001), time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.00001, time + dur);
+    osc.start(time);
+    osc.stop(time + dur + 0.01);
+  }
+
+  /* ---------- scheduler (lookahead) ---------- */
+  function nextNote(){
+    var secondsPerBeat = 60.0 / bpm;
+    var secondsPerSub = secondsPerBeat / subdivision;
+    nextNoteTime += secondsPerSub;
+    currentSub++;
+    if (currentSub >= subdivision){
+      currentSub = 0;
+      currentBeat = (currentBeat + 1) % beatsPerMeasure;
+    }
+  }
+  function scheduleNote(beat, sub, time){
+    var kind;
+    if (sub !== 0) kind = 'sub';
+    else if (beat === 0) kind = 'accent';
+    else kind = 'beat';
+    noteQueue.push({ time: time, beat: beat, sub: sub, kind: kind });
+    playClick(time, kind);
+  }
+  function scheduler(){
+    while (nextNoteTime < audioCtx.currentTime + scheduleAheadTime){
+      scheduleNote(currentBeat, currentSub, nextNoteTime);
+      nextNote();
+    }
+    timerID = setTimeout(scheduler, lookahead);
+  }
+
+  /* ---------- visual sync loop ---------- */
+  function visualLoop(){
+    if (!isPlaying) return;
+    var now = audioCtx.currentTime;
+    while (noteQueue.length && noteQueue[0].time <= now){
+      var note = noteQueue.shift();
+      if (note.sub === 0){
+        litBeat(note.beat);
+        flashCase();
+      }
+    }
+    rafID = requestAnimationFrame(visualLoop);
+  }
+  var flashTimer = null;
+  function flashCase(){
+    $case.classList.add('flash');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(function(){ $case.classList.remove('flash'); }, 90);
+  }
+
+  /* ---------- wake lock ---------- */
+  function requestWakeLock(){
+    if ('wakeLock' in navigator){
+      navigator.wakeLock.request('screen').then(function(lock){ wakeLock = lock; }).catch(function(){});
+    }
+  }
+  function releaseWakeLock(){
+    if (wakeLock){ wakeLock.release().catch(function(){}); wakeLock = null; }
+  }
+  document.addEventListener('visibilitychange', function(){
+    if (isPlaying && document.visibilityState === 'visible' && wakeLock === null){
+      requestWakeLock();
+    }
+  });
+
+  /* ---------- transport ---------- */
+  function start(){
+    if (isPlaying) return;
+    if (!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = volume;
+      masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    isPlaying = true;
+    currentBeat = 0;
+    currentSub = 0;
+    noteQueue = [];
+    nextNoteTime = audioCtx.currentTime + 0.05;
+    scheduler();
+    startPendulumAnim(60000 / bpm);
+    rafID = requestAnimationFrame(visualLoop);
+    requestWakeLock();
+
+    $playBtn.classList.add('playing');
+    $playBtn.setAttribute('aria-label', '停止節拍器');
+    $playIcon.innerHTML = '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>';
+  }
+  function stop(){
+    if (!isPlaying) return;
+    isPlaying = false;
+    clearTimeout(timerID);
+    cancelAnimationFrame(rafID);
+    stopPendulumAnim();
+    releaseWakeLock();
+    var dots = $beats.children;
+    for (var k=0;k<dots.length;k++) dots[k].classList.remove('lit');
+    $case.classList.remove('flash');
+
+    $playBtn.classList.remove('playing');
+    $playBtn.setAttribute('aria-label', '開始節拍器');
+    $playIcon.innerHTML = '<path d="M8 5v14l11-7z"></path>';
+  }
+  function toggle(){ isPlaying ? stop() : start(); }
+
+  /* ---------- tap tempo ---------- */
+  var tapTimes = [];
+  function tap(){
+    var now = performance.now();
+    if (tapTimes.length && now - tapTimes[tapTimes.length-1] > 2200) tapTimes = [];
+    tapTimes.push(now);
+    if (tapTimes.length > 5) tapTimes.shift();
+    if (tapTimes.length >= 2){
+      var intervals = [];
+      for (var i=1;i<tapTimes.length;i++) intervals.push(tapTimes[i]-tapTimes[i-1]);
+      var avg = intervals.reduce(function(a,b){return a+b;},0) / intervals.length;
+      setBpm(60000/avg);
+    }
+    $tapTempo.style.transform = 'scale(0.94)';
+    setTimeout(function(){ $tapTempo.style.transform = ''; }, 90);
+  }
+
+  /* ---------- events ---------- */
+  $playBtn.addEventListener('click', toggle);
+  $bpmDown.addEventListener('click', function(){ setBpm(bpm - 1); });
+  $bpmUp.addEventListener('click', function(){ setBpm(bpm + 1); });
+  $bpmSlider.addEventListener('input', function(){ setBpm(parseInt($bpmSlider.value,10)); });
+  $tsMinus.addEventListener('click', function(){
+    beatsPerMeasure = Math.max(1, beatsPerMeasure - 1);
+    buildBeats(); refreshDisplay();
+  });
+  $tsPlus.addEventListener('click', function(){
+    beatsPerMeasure = Math.min(9, beatsPerMeasure + 1);
+    buildBeats(); refreshDisplay();
+  });
+  $subdivBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      subdivision = parseInt(btn.getAttribute('data-val'),10);
+      $subdivBtns.forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+  $tapTempo.addEventListener('click', tap);
+  $volumeSlider.addEventListener('input', function(){
+    volume = parseInt($volumeSlider.value,10) / 100;
+    $volumeSlider.style.setProperty('--fill', $volumeSlider.value + '%');
+    if (masterGain) masterGain.gain.value = volume;
+  });
+
+  var themeOverride = null;
+  $themeToggle.addEventListener('click', function(){
+    var mql = window.matchMedia('(prefers-color-scheme: dark)');
+    var effectiveDark = themeOverride ? themeOverride === 'dark' : mql.matches;
+    themeOverride = effectiveDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', themeOverride);
+  });
+
+  document.addEventListener('keydown', function(e){
+    if (e.code === 'Space'){ e.preventDefault(); toggle(); }
+  });
+
+  /* ---------- apple touch icon (drawn, no external asset) ---------- */
+  function makeTouchIcon(){
+    try{
+      var c = document.createElement('canvas');
+      c.width = 180; c.height = 180;
+      var ctx = c.getContext('2d');
+      var g = ctx.createRadialGradient(70,50,10,90,90,140);
+      g.addColorStop(0, '#5c3620'); g.addColorStop(1, '#20130b');
+      ctx.fillStyle = g;
+      roundRect(ctx,0,0,180,180,38); ctx.fill();
+      ctx.strokeStyle = '#dda94f';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(90,150); ctx.lineTo(65,45); ctx.stroke();
+      ctx.fillStyle = '#f2c565';
+      ctx.beginPath(); ctx.ellipse(65,60,13,9,0.5,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(90,150,6,0,Math.PI*2); ctx.fill();
+      var link = document.createElement('link');
+      link.rel = 'apple-touch-icon';
+      link.href = c.toDataURL('image/png');
+      document.head.appendChild(link);
+    }catch(e){ /* icon is cosmetic only */ }
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+  }
+
+  /* ---------- init ---------- */
+  buildScale();
+  buildBeats();
+  refreshDisplay();
+  makeTouchIcon();
+
+})();
+</script>
+</body>
+</html>
